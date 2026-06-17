@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/lib/games"
+
+usage() {
+    echo "Usage: bootstrap-game <game-name>"
+}
+
+if (($# != 1)); then
+    usage >&2
+    exit 1
+fi
+
+game=$(resolve_game "$1")
+
+if [[ -z "$game" ]]; then
+    echo "Unknown game: $1" >&2
+    exit 1
+fi
+
+root="$PWD/games/$game"
+mods_dir="$root/mods"
+
+case "$game" in
+    "Cyberpunk 2077")
+        ;;
+    "Skyrim Special Edition")
+        skse_dir="$mods_dir/000_skse"
+        archive="$(mktemp --suffix=.7z)"
+
+        if [[ -d "$skse_dir" ]]; then
+            echo "Game already ready for launch."
+            exit 0
+        fi
+
+        cleanup_archive() {
+            rm -f "$archive"
+        }
+        trap cleanup_archive EXIT
+
+        mkdir -p "$skse_dir"
+
+        curl -fsSL "https://skse.silverlock.org/beta/skse64_2_02_06.7z" -o "$archive"
+        bsdtar -xf "$archive" -C "$skse_dir" --strip-components 1
+        ;;
+esac

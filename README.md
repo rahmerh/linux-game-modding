@@ -14,14 +14,15 @@ These scripts are only for Steam games using Proton.
 
 ## How it works
 
-Before launch:
-1. All mod folders in `<game>/mods/` are merged into `<game>/merged/`
-2. An overlayfs mount is created combining:
-   - `lowerdir` → the game install directory
-   - `upperdir` → the merged mods directory
-3. The overlay is mounted at `<game>/run/`
+An overlayfs mount is created combining:
 
-The game is then launched from the overlay mount. When the game exits it will try to clean up by umounting the active dir. If cleanup fails or the script is killed, unmount it manually.
+- `lowerdir` → the game install directory
+- `upperdir` → the merged mods directory at `<game>/merged/`
+- `workdir` → located at `<game>/work/`, should not be edited manually.
+
+The overlay is mounted at `<game>/run/`, from which the game is launched. 
+When the game exits it will try to clean up by umounting the active dir. 
+If cleanup fails or the script is killed, unmount it manually.
 
 ## Folder layout
 
@@ -41,6 +42,14 @@ This folder structure will be created automatically when running the scripts.
 
 ## Usage
 
+`bootstrap-game <game-name>`
+
+Sets up any required files before you can start installing mods, if required.
+
+`merge-mods <game-name>`
+
+Merges all mods into the merged dir, you should run this after every change to your mod list.
+
 `launch-game <game-name>`
 
 Starts the game, `<game-name>` can be the full name or an abbreviation.
@@ -49,5 +58,5 @@ Starts the game, `<game-name>` can be the full name or an abbreviation.
 
 - Cyberpunk 2077
     - Abbreviations: `cbp`, `cyberpunk`, `cyberpunk2077`
-- Skyrim Special Edition
+- Skyrim Special Edition (1.6.1170)
     - Abbreviations: `skyrim`, `es5`
