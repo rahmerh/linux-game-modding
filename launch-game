@@ -5,7 +5,33 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/games"
 
 cleanup() {
-    echo "CLEAN"
+    if ! mountpoint -q "$run_dir"; then
+        return
+    fi
+
+    if sudo umount "$run_dir"; then
+        return
+    fi
+
+    echo "Failed to unmount: $run_dir" >&2
+
+    return 1
+}
+
+wait_for_mount_users() {
+    # Wait until process appears.
+    for _ in {1..10}; do
+        if sudo fuser -m "$run_dir" >/dev/null 2>&1; then
+            break
+        fi
+
+        sleep 1
+    done
+
+    # Actual wait loop until mount disappears.
+    while sudo fuser -m "$run_dir" >/dev/null 2>&1; do
+        sleep 1
+    done
 }
 
 trap cleanup EXIT
@@ -15,6 +41,8 @@ sudo -v
 game=$(resolve_game "$1")
 
 root="$PWD/games/$game"
+
+mkdir -p "$root"
 
 mods_dir="$root/mods"
 upper_dir="$root/merged"
@@ -34,7 +62,6 @@ case "$game" in
         ;;
 esac
 
-sudo umount "$run_dir" &>/dev/null # Just in case
 sudo rm -rf "$work_dir" "$run_dir"
 mkdir -p "$work_dir" "$run_dir"
 
@@ -42,10 +69,19 @@ mkdir -p "$upper_dir" "$mods_dir" # TEMPORARY, will be removed when copying mods
 
 sudo mount -t overlay overlay \
     -o "lowerdir=$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
-    "$run_dir"
+    "$run_dir" || exit 1
+
+cd "$run_dir"
 
 STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam" \
     STEAM_COMPAT_DATA_PATH="$compatdata_dir" \
     WINEDLLOVERRIDES="winmm,version=n,b" \
     "$HOME/.steam/steam/steamapps/common/Proton - Experimental/proton" \
-    waitforexitandrun "$game_executable"
+    waitforexitandrun "$game_executable" >/dev/null 2>&1
+proton_status=$?
+
+cd "$SCRIPT_DIR"
+
+wait_for_mount_users
+
+exit "$proton_status"

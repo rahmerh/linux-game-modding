@@ -6,11 +6,11 @@ The core idea is:
 - Mods are installed into separate folders
 - All mods are merged into a single `merged/` directory
 - The game is launched through an **overlayfs mount** that overlays `merged/` on top of the original game directory
-- The base game install is never modified
+- The base game install dir is never modified
 
 These scripts are intentionally **folder-based** for simplicity.
 
-These script are only for steam games using proton.
+These scripts are only for Steam games using Proton.
 
 ## How it works
 
@@ -21,69 +21,33 @@ Before launch:
    - `upperdir` → the merged mods directory
 3. The overlay is mounted at `<game>/run/`
 
-The game is then launched from the overlay mount and, once the game exits, the mount is cleaned up.
-
-Merging the mods is done in alphabetical order of the mods folders. The install script automatically prefixes a 3 digit number to the folder name. You're free to reorder this load order by changing this manually.
-
-This merge is only done when running the `rebuild-mods.fish` script. Optionally also runs when you provide the `--rebuild` flag when using the `install-mod.fish` script.
+The game is then launched from the overlay mount. When the game exits it will try to clean up by umounting the active dir. If cleanup fails or the script is killed, unmount it manually.
 
 ## Folder layout
 
 Each game lives in its own folder:
 
 ```
-./Cyberpunk 2077/
+./games/<GAME>/
   mods/
     001_FirstMod/
     002_SecondMod/
-  merged/
-  work/
-  run/
+  merged/ # All merged mods, acts as the 'upperdir'
+  work/ # Overlayfs work folder, do not edit manually.
+  run/ # Overlayed mount folder, empty unless mount is active.
 ```
-This folder structure will be created automatically when running the scripts. The `<game-name>` argument passed to scripts must match the folder name exactly. (Ex: `./start-game.fish "Cyberpunk 2077"`)
 
-## Prerequisites
-
-- [Fish](https://fishshell.com/)
-- [Gum](https://github.com/charmbracelet/gum)
-- [Steam](https://store.steampowered.com/)
+This folder structure will be created automatically when running the scripts.
 
 ## Usage
 
-`install-mod.fish <game-name> <archive-path> [--keep-archive] [--rebuild]`
+`launch-game <game-name>`
 
-Install mod from the downloaded archive into the game's mods folder. 
-
-`--keep-archive` Prevents the archive from being deleted on completion.
-`--rebuild` Rebuilds the merged dir after installation.
-
-`rebuild-mods.fish <game-name>`
-
-"Rebuilds" the game's mods into the game's merged dir. This should be done after installing or uninstalling mods or any manual edits to the mods folders.
-
-`start-game.fish <game-name>`
-
-Starts the game from the `run` dir with all mods overlayed. Will start an overlayfs mount before starting and will unmount after the game exits.
-
-`bootstrap-game.fish <game-name>`
-
-Prepares any requirements before you can start modding your game. Should only be run once.
-
-`list-mods.fish <game-name>`
-
-Lists all installed mods in the game's `mods` dir.
+Starts the game, `<game-name>` can be the full name or an abbreviation.
 
 ## Supported games
 
 - Cyberpunk 2077
     - Abbreviations: `cbp`, `cyberpunk`, `cyberpunk2077`
-
-## Roadmap
-
-- [ ] Validate extracted archive folder structure
-- [ ] Configurable proton version
-- [ ] General configuration (game or install paths)
-- [ ] Nexus mods integration (Downloading games using their API)
-- [x] Rebuild mods script
-- [x] Uninstall script
-- [ ] Non steam game support
+- Skyrim Special Edition
+    - Abbreviations: `skyrim`, `es5`

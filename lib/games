@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 resolve_game() {
-    case "$1" in
+    local game="${1,,}"
+
+    case "$game" in
         "cyberpunk 2077" | cyberpunk | cyberpunk2077 | cbp)
             echo "Cyberpunk 2077"
             ;;
-        "Skyrim Special Edition" | skyrim | skrm)
+        "skyrim special edition" | skyrim | es5)
             echo "Skyrim Special Edition"
             ;;
     esac
