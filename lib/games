@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+resolve_game() {
+    case "$1" in 
+        "cyberpunk 2077" | cyberpunk | cyberpunk2077 | cbp)
+            echo "Cyberpunk 2077"
+        ;;
+    esac
+}

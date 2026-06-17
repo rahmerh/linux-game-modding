@@ -8,9 +8,9 @@ The core idea is:
 - The game is launched through an **overlayfs mount** that overlays `merged/` on top of the original game directory
 - The base game install is never modified
 
-These scripts are intentionally **folder-based** and avoid hidden state. This does result in some some manual setup in certain situations.
+These scripts are intentionally **folder-based** for simplicity.
 
-Currently, these script are only for steam games using proton.
+These script are only for steam games using proton.
 
 ## How it works
 
