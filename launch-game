@@ -4,6 +4,10 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 . "$SCRIPT_DIR/lib/games"
 
+usage() {
+    echo "Usage: launch-game <game-name>"
+}
+
 cleanup() {
     if ! mountpoint -q "$run_dir"; then
         return
@@ -36,16 +40,25 @@ wait_for_mount_users() {
 
 trap cleanup EXIT
 
-sudo -v
+if (($# != 1)); then
+    usage >&2
+    exit 1
+fi
 
 game=$(resolve_game "$1")
 
+if [[ -z "$game" ]]; then
+    echo "Unknown game: $1" >&2
+    exit 1
+fi
+
+sudo -v
+
 root="$PWD/games/$game"
 
-mkdir -p "$root"
-
 mods_dir="$root/mods"
-upper_dir="$root/merged"
+merged_dir="$root/merged"
+upper_dir="$root/sink"
 work_dir="$root/work"
 run_dir="$root/run"
 
@@ -63,12 +76,11 @@ case "$game" in
 esac
 
 sudo rm -rf "$work_dir" "$run_dir"
-mkdir -p "$work_dir" "$run_dir"
+mkdir -p "$work_dir" "$run_dir" "$upper_dir"
 
-mkdir -p "$upper_dir" "$mods_dir" # TEMPORARY, will be removed when copying mods.
-
+# In overlayfs lowerdir order, the leftmost lower layer is above later layers.
 sudo mount -t overlay overlay \
-    -o "lowerdir=$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
+    -o "lowerdir=$merged_dir:$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
     "$run_dir" || exit 1
 
 cd "$run_dir"

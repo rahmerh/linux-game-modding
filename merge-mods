@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/lib/games"
+
+usage() {
+    echo "Usage: merge-mods <game-name>"
+}
+
+if (($# != 1)); then
+    usage >&2
+    exit 1
+fi
+
+game=$(resolve_game "$1")
+
+if [[ -z "$game" ]]; then
+    echo "Unknown game: $1" >&2
+    exit 1
+fi
+
+root="$PWD/games/$game"
+mods="$root/mods"
+merged="$root/merged"
+
+rm -rf "$merged"
+mkdir -p "$merged"
+
+for mod_dir in "$mods"/*; do
+    echo "Merging $mod_dir"
+    cp -r "$mod_dir"/* "$merged"
+done
