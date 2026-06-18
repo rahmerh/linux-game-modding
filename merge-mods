@@ -8,6 +8,32 @@ usage() {
     echo "Usage: merge-mods <game-name>"
 }
 
+enable_skyrim_plugins_for_mod() {
+    local mod_dir="$1"
+
+    if [[ ! -d "$mod_dir/Data" ]]; then
+        return
+    fi
+
+    local plugins_dir="$HOME/.steam/steam/steamapps/compatdata/489830/pfx/drive_c/users/steamuser/AppData/Local/Skyrim Special Edition"
+    local plugin
+    local plugin_entry
+
+    mkdir -p "$plugins_dir"
+    plugins_file="$plugins_dir/Plugins.txt"
+    touch "$plugins_file"
+
+    find "$mod_dir/Data" -maxdepth 1 -type f \
+        \( -iname "*.esm" -o -iname "*.esp" -o -iname "*.esl" \) \
+        -printf "%f\n" | sort -f | while IFS= read -r plugin; do
+            plugin_entry="*$plugin"
+
+            if ! grep -Fxq "$plugin_entry" "$plugins_file"; then
+                echo "$plugin_entry" >>"$plugins_file"
+            fi
+        done
+}
+
 if (($# != 1)); then
     usage >&2
     exit 1
@@ -23,11 +49,22 @@ fi
 root="$PWD/games/$game"
 mods="$root/mods"
 merged="$root/merged"
+plugins_file=
 
 rm -rf "$merged"
-mkdir -p "$merged"
+mkdir -p "$merged" "$mods"
 
 for mod_dir in "$mods"/*; do
+    if [[ ! -d "$mod_dir" ]]; then
+        continue
+    fi
+
     echo "Merging $mod_dir"
     cp -r "$mod_dir"/* "$merged"
+
+    case "$game" in
+        "Skyrim Special Edition")
+            enable_skyrim_plugins_for_mod "$mod_dir"
+            ;;
+    esac
 done

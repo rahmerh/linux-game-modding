@@ -52,7 +52,7 @@ if [[ -z "$game" ]]; then
     exit 1
 fi
 
-sudo -v
+sudo -v || exit 1
 
 root="$PWD/games/$game"
 
@@ -61,6 +61,7 @@ merged_dir="$root/merged"
 upper_dir="$root/sink"
 work_dir="$root/work"
 run_dir="$root/run"
+dll_overrides="winmm,version=n,b"
 
 case "$game" in
     "Cyberpunk 2077")
@@ -72,10 +73,13 @@ case "$game" in
         install_dir="$HOME/.steam/steam/steamapps/common/Skyrim Special Edition"
         compatdata_dir="$HOME/.steam/steam/steamapps/compatdata/489830"
         game_executable="$run_dir/skse64_loader.exe"
+        if [[ -e "$merged_dir/d3dx9_42.dll" ]]; then
+            dll_overrides="winmm,version,d3dx9_42=n,b"
+        fi
         ;;
 esac
 
-sudo rm -rf "$work_dir" "$run_dir"
+sudo rm -rf "$work_dir" "$run_dir" "$upper_dir"
 mkdir -p "$work_dir" "$run_dir" "$upper_dir"
 
 # In overlayfs lowerdir order, the leftmost lower layer is above later layers.
@@ -87,7 +91,7 @@ cd "$run_dir"
 
 STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam" \
     STEAM_COMPAT_DATA_PATH="$compatdata_dir" \
-    WINEDLLOVERRIDES="winmm,version=n,b" \
+    WINEDLLOVERRIDES="$dll_overrides" \
     "$HOME/.steam/steam/steamapps/common/Proton - Experimental/proton" \
     waitforexitandrun "$game_executable" >/dev/null 2>&1
 proton_status=$?

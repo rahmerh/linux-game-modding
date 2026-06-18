@@ -28,21 +28,19 @@ case "$game" in
         ;;
     "Skyrim Special Edition")
         skse_dir="$mods_dir/000_skse"
-        archive="$(mktemp --suffix=.7z)"
 
-        if [[ -d "$skse_dir" ]]; then
-            echo "Game already ready for launch."
-            exit 0
+        if [[ ! -d "$skse_dir" ]]; then
+            mkdir -p "$skse_dir"
+
+            archive="$(mktemp --suffix=.7z)"
+            curl -fsSL "https://skse.silverlock.org/beta/skse64_2_02_06.7z" -o "$archive"
+            bsdtar -xf "$archive" -C "$skse_dir" --strip-components 1
+            rm -f "$archive"
         fi
 
-        cleanup_archive() {
-            rm -f "$archive"
-        }
-        trap cleanup_archive EXIT
+        gum spin --title "Installing d3d compiler" -- protontricks 489830 d3dcompiler_47
+        gum spin --title "Installing Visual C++ runtime (vcrun2022)" -- protontricks 1091500 vcrun2022
 
-        mkdir -p "$skse_dir"
-
-        curl -fsSL "https://skse.silverlock.org/beta/skse64_2_02_06.7z" -o "$archive"
-        bsdtar -xf "$archive" -C "$skse_dir" --strip-components 1
+        exit 0
         ;;
 esac
