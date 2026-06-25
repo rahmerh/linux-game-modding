@@ -60,7 +60,7 @@ for mod_dir in "$mods"/*; do
     fi
 
     echo "Merging $mod_dir"
-    cp -r "$mod_dir"/* "$merged"
+    cp -a "$mod_dir"/. "$merged"/.
 
     case "$game" in
         "Skyrim Special Edition")

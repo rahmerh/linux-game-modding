@@ -2,38 +2,50 @@
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=lib/games
 . "$SCRIPT_DIR/lib/games"
 
 usage() {
     echo "Usage: launch-game <game-name>"
 }
 
+# shellcheck disable=SC2329 # Invoked by the EXIT trap after a successful mount.
 cleanup() {
-    if ! mountpoint -q "$run_dir"; then
+    if [[ -z "$mount_dir" ]]; then
         return
     fi
 
-    if sudo umount "$run_dir"; then
-        return
-    fi
+    while mountpoint -q "$mount_dir"; do
+        if sudo umount "$mount_dir"; then
+            continue
+        fi
 
-    echo "Failed to unmount: $run_dir" >&2
+        echo "Failed to unmount: $mount_dir" >&2
 
-    return 1
+        return 1
+    done
+}
+
+mount_user_pids() {
+    sudo fuser -m "$mount_dir" 2>/dev/null
+}
+
+mount_has_users() {
+    [[ -n "$(mount_user_pids)" ]]
 }
 
 wait_for_mount_users() {
     # Wait until process appears.
     for _ in {1..10}; do
-        if sudo fuser -m "$run_dir" >/dev/null 2>&1; then
+        if mount_has_users; then
             break
         fi
 
         sleep 1
     done
 
-    # Actual wait loop until mount disappears.
-    while sudo fuser -m "$run_dir" >/dev/null 2>&1; do
+    # Actual wait loop until user processes release the mount.
+    while mount_has_users; do
         sleep 1
     done
 }
@@ -46,14 +58,12 @@ prepare_overlay_dirs() {
         fi
     fi
 
-    mkdir -p "$work_dir" "$run_dir" "$upper_dir"
+    mkdir -p "$work_dir" "$run_dir" "$upper_dir" "$mount_dir" "$logs_dir"
 
     if sudo getfattr -n trusted.overlay.origin "$upper_dir" >/dev/null 2>&1; then
         sudo setfattr -x trusted.overlay.origin "$upper_dir" || return 1
     fi
 }
-
-trap cleanup EXIT
 
 if (($# != 1)); then
     usage >&2
@@ -67,15 +77,14 @@ if [[ -z "$game" ]]; then
     exit 1
 fi
 
-sudo -v || exit 1
-
 root="$PWD/games/$game"
 
-mods_dir="$root/mods"
 merged_dir="$root/merged"
 upper_dir="$root/sink"
 work_dir="$root/work"
 run_dir="$root/run"
+logs_dir="$root/logs"
+mount_dir="$run_dir"
 dll_overrides="winmm,version=n,b"
 
 case "$game" in
@@ -93,25 +102,59 @@ case "$game" in
             dll_overrides="winmm,version,d3dx9_42=n,b"
         fi
         ;;
+    "Minecraft")
+        install_dir="$HOME/.minecraft"
+        minecraft_home_dir="$run_dir"
+        mount_dir="$minecraft_home_dir/.minecraft"
+        game_executable="minecraft-launcher"
+        ;;
+    *)
+        echo "Launching is not supported for $game" >&2
+        exit 1
+        ;;
 esac
+
+if [[ ! -d "$install_dir" ]]; then
+    echo "Install directory does not exist: $install_dir" >&2
+    exit 1
+fi
+
+sudo -v || exit 1
 
 prepare_overlay_dirs || exit 1
 
+log_file="$logs_dir/$(date +%Y%m%d-%H%M%S).log"
+
 sudo mount -t overlay overlay \
-    -o "lowerdir=$merged_dir:$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
-    "$run_dir" || exit 1
+    -o index=off -o metacopy=off -o "lowerdir=$merged_dir:$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
+    "$mount_dir" || exit 1
 
-cd "$run_dir"
+trap cleanup EXIT
 
-STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.steam/steam" \
-    STEAM_COMPAT_DATA_PATH="$compatdata_dir" \
-    WINEDLLOVERRIDES="$dll_overrides" \
-    "$HOME/.steam/steam/steamapps/common/Proton - Experimental/proton" \
-    waitforexitandrun "$game_executable" >/dev/null 2>&1
-proton_status=$?
+if [[ "$game" == "Minecraft" ]]; then
+    # shellcheck disable=SC2016 # Expanded by the child shell after positional args are assigned.
+    gum spin --title "Launching $game" -- \
+        bash -c 'log_file=$1; minecraft_home_dir=$2; game_executable=$3; HOME="$minecraft_home_dir" "$game_executable" >"$log_file" 2>&1' \
+        bash "$log_file" "$minecraft_home_dir" "$game_executable"
+    launcher_status=$?
 
-cd "$SCRIPT_DIR"
+    wait_for_mount_users
 
-wait_for_mount_users
+    exit "$launcher_status"
+else
+    # shellcheck disable=SC2016 # Expanded by the child shell after positional args are assigned.
+    gum spin --title "Launching $game" -- \
+        bash -c 'log_file=$1; mount_dir=$2; shift 2; cd "$mount_dir" || exit; "$@" >"$log_file" 2>&1' \
+        bash "$log_file" "$mount_dir" \
+        env \
+        "STEAM_COMPAT_CLIENT_INSTALL_PATH=$HOME/.steam/steam" \
+        "STEAM_COMPAT_DATA_PATH=$compatdata_dir" \
+        "WINEDLLOVERRIDES=$dll_overrides" \
+        "$HOME/.steam/steam/steamapps/common/Proton - Experimental/proton" \
+        waitforexitandrun "$game_executable"
+    proton_status=$?
 
-exit "$proton_status"
+    wait_for_mount_users
+
+    exit "$proton_status"
+fi
