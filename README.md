@@ -11,8 +11,6 @@ The core idea is:
 
 These scripts are intentionally **folder-based** for simplicity.
 
-These scripts are only for Steam games using Proton.
-
 ## How it works
 
 An overlayfs mount is created with this layer order, from bottom to top:
@@ -27,10 +25,10 @@ In overlayfs terms:
 - `upperdir` → `<game>/sink/`
 - `workdir` → located at `<game>/work/`, should not be edited manually.
 
-The overlay is mounted at `<game>/run/`, from which the game is launched. 
+The overlay is mounted at `<game>/run/`, from which the game is launched.
 Any files created or changed by the game are written to `<game>/sink/`.
-This directory is persistent, to be safe any generated game files should be moved into a mod dir (for example `999-sink` so they're always copied last.
-When the game exits it will try to clean up by umounting the active dir. 
+This directory is persistent. To be safe, any generated game files should be moved into a mod dir, for example `999-sink`, so they are always copied last.
+When the game exits it will try to clean up by unmounting the active dir.
 If cleanup fails or the script is killed, unmount it manually.
 
 ## Folder layout
@@ -56,6 +54,8 @@ This folder structure will be created automatically when running the scripts.
 
 Sets up any required files before you can start installing mods, if required.
 
+For Minecraft, this currently installs NeoForge only. The script will ask for the path to a NeoForge installer jar.
+
 `merge-mods <game-name>`
 
 Merges all mods into the merged dir, you should run this after every change to your mod list.
@@ -71,4 +71,34 @@ Starts the game, `<game-name>` can be the full name or an abbreviation.
 - Skyrim Special Edition (1.6.1170)
     - Abbreviations: `skyrim`, `es5`
 - Minecraft
-    - Abbreviations: `minecraft`, `mc`
+    - Abbreviations: `mc`
+
+### Minecraft exceptions
+
+Minecraft uses `$HOME/.minecraft` as the base install directory and launches through `minecraft-launcher`, not Proton.
+
+The overlay mount is different from the Proton games:
+
+- the launcher is run with `HOME` set to `games/Minecraft/run/`
+- the overlay is mounted at `games/Minecraft/run/.minecraft`
+- the original install remains `$HOME/.minecraft`
+
+Because the launcher owns the running game process, cleanup only happens after the launcher and any game processes using the mount have exited.
+
+Each Minecraft mod directory should contain files exactly where they should appear inside `.minecraft`.
+`merge-mods` copies the contents of each folder in `games/Minecraft/mods/` into `games/Minecraft/merged/`.
+
+For example:
+
+```
+games/Minecraft/mods/
+  001_example_mod/
+    mods/
+      example-mod.jar
+  002_example_shaderpack/
+    shaderpacks/
+      example-shader.zip
+  003_example_resourcepack/
+    resourcepacks/
+      example-resource-pack.zip
+```
