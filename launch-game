@@ -38,6 +38,21 @@ wait_for_mount_users() {
     done
 }
 
+prepare_overlay_dirs() {
+    if mountpoint -q "$run_dir"; then
+        if ! sudo umount "$run_dir"; then
+            echo "Failed to unmount stale mount: $run_dir" >&2
+            return 1
+        fi
+    fi
+
+    mkdir -p "$work_dir" "$run_dir" "$upper_dir"
+
+    if sudo getfattr -n trusted.overlay.origin "$upper_dir" >/dev/null 2>&1; then
+        sudo setfattr -x trusted.overlay.origin "$upper_dir" || return 1
+    fi
+}
+
 trap cleanup EXIT
 
 if (($# != 1)); then
@@ -73,16 +88,15 @@ case "$game" in
         install_dir="$HOME/.steam/steam/steamapps/common/Skyrim Special Edition"
         compatdata_dir="$HOME/.steam/steam/steamapps/compatdata/489830"
         game_executable="$run_dir/skse64_loader.exe"
+
         if [[ -e "$merged_dir/d3dx9_42.dll" ]]; then
             dll_overrides="winmm,version,d3dx9_42=n,b"
         fi
         ;;
 esac
 
-sudo rm -rf "$work_dir" "$run_dir" "$upper_dir"
-mkdir -p "$work_dir" "$run_dir" "$upper_dir"
+prepare_overlay_dirs || exit 1
 
-# In overlayfs lowerdir order, the leftmost lower layer is above later layers.
 sudo mount -t overlay overlay \
     -o "lowerdir=$merged_dir:$install_dir,upperdir=$upper_dir,workdir=$work_dir" \
     "$run_dir" || exit 1
