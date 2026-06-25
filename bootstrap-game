@@ -25,18 +25,52 @@ mods_dir="$root/mods"
 
 case "$game" in
     "Cyberpunk 2077")
+        gum spin --title "Installing Visual C++ runtime (vcrun2022)" -- protontricks 1091500 vcrun2022
+
+        exit 0
+        ;;
+    "Minecraft")
+        modloader="$(gum choose --header "Select modloader to install" neoforge forge fabric quilt)"
+
+        if [[ -z "$modloader" ]]; then
+            echo "No modloader selected" >&2
+            exit 1
+        fi
+
+        if [[ "$modloader" != "neoforge" ]]; then
+            echo "Unsupported modloader selection: $modloader" >&2
+            exit 1
+        fi
+
+        modloader_dir="$mods_dir/000_$modloader"
+
+        if [[ -d "$modloader_dir" ]]; then
+            echo "Game already set up, delete '$modloader_dir' to reset" >&2
+            exit 1
+        fi
+
+        read -e -i "$HOME/Downloads/" -p "Path to Neoforge installer jar: " installer
+
+        mkdir -p "$modloader_dir"
+        printf '{"profiles":{}}\n' >"$modloader_dir/launcher_profiles.json"
+        gum spin --title "Installing $modloader" -- java -jar "$installer" --install-client "$modloader_dir"
+
+        exit 0
         ;;
     "Skyrim Special Edition")
         skse_dir="$mods_dir/000_skse"
 
-        if [[ ! -d "$skse_dir" ]]; then
-            mkdir -p "$skse_dir"
-
-            archive="$(mktemp --suffix=.7z)"
-            curl -fsSL "https://skse.silverlock.org/beta/skse64_2_02_06.7z" -o "$archive"
-            bsdtar -xf "$archive" -C "$skse_dir" --strip-components 1
-            rm -f "$archive"
+        if [[ -d "$skse_dir" ]]; then
+            echo "Game already set up, delete '$skse_dir' to reset" >&2
+            exit 1
         fi
+
+        mkdir -p "$skse_dir"
+
+        archive="$(mktemp --suffix=.7z)"
+        curl -fsSL "https://skse.silverlock.org/beta/skse64_2_02_06.7z" -o "$archive"
+        bsdtar -xf "$archive" -C "$skse_dir" --strip-components 1
+        rm -f "$archive"
 
         gum spin --title "Installing d3d compiler" -- protontricks 489830 d3dcompiler_47
         gum spin --title "Installing Visual C++ runtime (vcrun2022)" -- protontricks 1091500 vcrun2022

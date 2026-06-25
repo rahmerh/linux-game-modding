@@ -10,5 +10,8 @@ resolve_game() {
         "skyrim special edition" | skyrim | es5)
             echo "Skyrim Special Edition"
             ;;
+        minecraft | mc)
+            echo "Minecraft"
+            ;;
     esac
 }

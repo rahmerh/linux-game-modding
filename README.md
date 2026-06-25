@@ -70,3 +70,5 @@ Starts the game, `<game-name>` can be the full name or an abbreviation.
     - Abbreviations: `cbp`, `cyberpunk`, `cyberpunk2077`
 - Skyrim Special Edition (1.6.1170)
     - Abbreviations: `skyrim`, `es5`
+- Minecraft
+    - Abbreviations: `minecraft`, `mc`
